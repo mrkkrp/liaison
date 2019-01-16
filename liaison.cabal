@@ -1,0 +1,56 @@
+name:                 liaison
+version:              0.0.1.0
+cabal-version:        1.18
+tested-with:          GHC==8.6.3
+license:              BSD3
+license-file:         LICENSE.md
+author:               Mark Karpov <markkarpov92@gmail.com>
+maintainer:           Mark Karpov <markkarpov92@gmail.com>
+homepage:             https://github.com/mrkkrp/liaison
+bug-reports:          https://github.com/mrkkrp/liaison/issues
+category:             Nix, Data
+synopsis:             Nix as configuration language
+build-type:           Simple
+description:          Nix as configuration language.
+extra-doc-files:      CHANGELOG.md
+                    , README.md
+
+source-repository head
+  type:               git
+  location:           https://github.com/mrkkrp/liaison.git
+
+flag dev
+  description:        Turn on development settings.
+  manual:             True
+  default:            False
+
+library
+  hs-source-dirs:     src
+  build-depends:      base             >= 4.8 && < 5.0
+  exposed-modules:    Liaison
+                    , Liaison.Evaluator
+                    , Liaison.Parser
+                    , Liaison.Printer
+                    , Liaison.Types
+                    , Liaison.Validation
+  if flag(dev)
+    ghc-options:      -Wall -Werror -Wcompat
+                      -Wincomplete-record-updates
+                      -Wincomplete-uni-patterns
+                      -Wnoncanonical-monad-instances
+                      -Wnoncanonical-monadfail-instances
+  else
+    ghc-options:      -O2 -Wall
+  default-language:   Haskell2010
+
+test-suite tests
+  main-is:            Main.hs
+  hs-source-dirs:     tests
+  type:               exitcode-stdio-1.0
+  build-depends:      base             >= 4.8 && < 5.0
+                    , liaison
+  if flag(dev)
+    ghc-options:      -Wall -Werror
+  else
+    ghc-options:      -O2 -Wall
+  default-language:   Haskell2010
