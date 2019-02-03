@@ -27,7 +27,10 @@ flag dev
 library
   hs-source-dirs:     src
   build-depends:      base             >= 4.8 && < 5.0
+                    , megaparsec       >= 7.0.3 && < 8.0
+                    , text             >= 0.2 && < 1.3
   exposed-modules:    Liaison
+                    , Liaison.Builder
                     , Liaison.Evaluator
                     , Liaison.Parser
                     , Liaison.Printer
@@ -44,11 +47,18 @@ library
   default-language:   Haskell2010
 
 test-suite tests
-  main-is:            Main.hs
+  main-is:            Spec.hs
   hs-source-dirs:     tests
   type:               exitcode-stdio-1.0
   build-depends:      base             >= 4.8 && < 5.0
+                    , hspec            >= 2.0 && < 3.0
                     , liaison
+  build-tools:        hspec-discover   >= 2.0 && < 3.0
+  other-modules:      Liaison.BuilderSpec
+                    , Liaison.EvaluatorSpec
+                    , Liaison.ParserSpec
+                    , Liaison.PrinterSpec
+                    , Liaison.ValidationSpec
   if flag(dev)
     ghc-options:      -Wall -Werror
   else
