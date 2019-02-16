@@ -18,6 +18,35 @@
 > different. From the first sight she understood that this guy didn't need
 > no pluses, for he himself was the infinite multiplier…
 
+Liaison is a package that allows us to use a subset of Nix language as
+general-purpose configuration language. The project so far is just a
+playground, I do not expect that people will use it in its current state.
+
+## Get started
+
+* Specification of the language can be found [here](LANG.md).
+* Roadmap can be found [here](ROADMAP.md).
+* See Haddocks for info about how to use this in Haskell programs.
+
+## Motivation
+
+What we want for writing configuration is something like JSON or YAML, but
+with lambdas, and that's exactly what Nix is. In addition to that, subset of
+Nix should be more portable as a language than e.g. [YAML][yaml-sucks].
+
+But hey, there is…
+
+* [`hnix`][hnix], but its scope is wider because it aims to re-implement Nix
+  in its entirety. `liaison` is simpler and specifically written to work as
+  a configuration language. For example, we provide a validation framework,
+  special set of combinators to generate configuration files, etc.
+
+* [`dhall`][dhall], which has *too* powerful type system, and is very slow.
+  The promise of termination does not give anything from practical point of
+  view, because it's possible to write functions that will eventually
+  terminate, but not in our lifetimes. `liaison` aims to be fast and simple
+  to use. Its dynamic nature is compensated by excelent error messages.
+
 ## Contribution
 
 Issues, bugs, and questions may be reported in [the GitHub issue tracker for
@@ -30,3 +59,7 @@ Pull requests are also welcome and will be reviewed quickly.
 Copyright © 2019 Mark Karpov
 
 Distributed under BSD 3 clause license.
+
+[yaml-sucks]: https://arp242.net/weblog/yaml_probably_not_so_great_after_all.html
+[hnix]: https://hackage.haskell.org/package/hnix
+[dhall]: https://hackage.haskell.org/package/dhall
