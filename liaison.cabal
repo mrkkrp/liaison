@@ -39,6 +39,7 @@ library
                     , Liaison.Evaluator
                     , Liaison.Expression
                     , Liaison.Parser
+                    , Liaison.Parser.TH
                     , Liaison.Printer
                     , Liaison.Validation
   if flag(dev)
