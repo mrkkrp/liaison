@@ -12,7 +12,7 @@ import Data.Coerce
 import Data.Functor.Identity
 import Data.Scientific (fromFloatDigits)
 import Data.Text (Text)
-import Liaison.Types
+import Liaison.Expression
 import qualified Data.Map as M
 
 -- | Construct a string literal. You can also use Haskell string literals

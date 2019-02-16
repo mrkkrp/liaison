@@ -8,7 +8,7 @@ module Liaison.Evaluator
 where
 
 import Data.Functor.Identity
-import Liaison.Types
+import Liaison.Expression
 import qualified Data.Map as M
 
 -- | Transform 'Exp' to its normal form, 'NExp'.

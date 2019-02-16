@@ -10,7 +10,7 @@ where
 
 import Data.Text (Text)
 import Data.Text.Lazy.Builder (Builder)
-import Liaison.Types
+import Liaison.Expression
 import Prelude hiding (print)
 import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Text.Lazy.Builder.Scientific as B
