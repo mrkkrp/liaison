@@ -1,4 +1,28 @@
--- | Shortcuts for construction of expressions from Haskell.
+-- |
+-- Module      :  Liaison.Builder
+-- Copyright   :  © 2019 Mark Karpov
+-- License     :  BSD 3 clause
+--
+-- Maintainer  :  Mark Karpov <markkarpov92@gmail.com>
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Shortcuts for construction of expressions from Haskell.
+--
+-- For example, expression that is equivalent to this configuration file:
+--
+-- > { age = 22;
+-- >   email = "something@example.org";
+-- > }
+--
+-- can be constructed like this:
+--
+-- > set [ ("age", int 22)
+-- >     , ("email", "something@example.org")
+-- >     ]
+--
+-- The module "Liaison.Printer" has functions that allow us to convert
+-- expressions to their textual representation and save them to files.
 
 module Liaison.Builder
   ( str

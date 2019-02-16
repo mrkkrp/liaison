@@ -1,3 +1,14 @@
+-- |
+-- Module      :  Liaison.Expression
+-- Copyright   :  © 2019 Mark Karpov
+-- License     :  BSD 3 clause
+--
+-- Maintainer  :  Mark Karpov <markkarpov92@gmail.com>
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Expression definitions and helper functions.
+
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -6,11 +17,9 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
--- | Expression definitions.
-
 module Liaison.Expression
   ( Exp (..)
-  , mapExp
+  , transAnns
   , eraseL
   , L (..)
   , unL
@@ -18,6 +27,7 @@ module Liaison.Expression
   , unE
   , I
   , NExp (..)
+  , WExp
   , nexpName
   )
 where
@@ -49,24 +59,24 @@ deriving instance (forall a. Show a => Show (f a)) => Show (Exp f)
 instance IsString (Exp f) where
   fromString = String . fromString
 
--- | Map annotation wrapper.
+-- | Apply natural transformation to annotations.
 
-mapExp
+transAnns
   :: Functor g
   => (forall a. f a -> g a)     -- ^ Natural transformation to apply
   -> Exp f                      -- ^ Original expression tree
   -> Exp g                      -- ^ Resulting expression tree
-mapExp f = \case
+transAnns f = \case
   String txt -> String txt
   Number x -> Number x
-  Set m -> Set (M.map (fmap (mapExp f) . f) m)
+  Set m -> Set (M.map (fmap (transAnns f) . f) m)
 
 -- | Erase location information from AST.
 --
 -- > eraseL = mapExp (Identity . unL)
 
 eraseL :: Exp L -> Exp I
-eraseL = mapExp (Identity . unL)
+eraseL = transAnns (Identity . unL)
 
 -- | Location information. The first 'Int' is offset, the second 'Int' is
 -- length in characters.
@@ -101,6 +111,10 @@ data NExp e
   | NNumber Scientific          -- ^ Numbers
   | NSet (Map Text e)           -- ^ Sets
   deriving (Eq, Ord, Show)
+
+-- | Type synonym for weak head normal form of expression.
+
+type WExp = NExp (L (Exp L))
 
 -- | Get textual description of given 'NExp'.
 

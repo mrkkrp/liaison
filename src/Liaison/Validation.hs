@@ -1,18 +1,55 @@
+-- |
+-- Module      :  Liaison.Validation
+-- Copyright   :  © 2019 Mark Karpov
+-- License     :  BSD 3 clause
+--
+-- Maintainer  :  Mark Karpov <markkarpov92@gmail.com>
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- The module describes how to do consumption of expressions from host
+-- language.
+--
+-- Typically you will have a data type which contains the configuration
+-- options you want to load. There may be more than one way to map form
+-- parsed expression to Haskell data type, thus we do not provide type class
+-- for this, instead use 'V' to create a parser, or as we call it,
+-- /validator/.
+--
+-- An example of validator follows:
+--
+-- > data User = User
+-- >   { userAge :: Maybe Int
+-- >   , userEmail :: Text
+-- >   }
+-- >
+-- > vUser :: V Void User
+-- > vUser = User
+-- >   <$> optional (index "age" int)
+-- >   <*> index "email" str
+--
+-- In this example @vUser@ could be used to consume a configuration such as
+-- this:
+--
+-- > { age = 22;
+-- >   email = "something@example.org";
+-- > }
+
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE EmptyCase           #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Consumption of expressions from host language.
-
 module Liaison.Validation
-  ( -- * Types
+  ( -- * Types and re-exports
     V
   , validate
   , ValidationError (..)
   , ShowValidationError (..)
   , module Data.Functor.Alt
+  , module Liaison.Expression
     -- * Primitive combinators
   , consume
   , index
@@ -33,11 +70,14 @@ import Data.Text (Text)
 import Data.Void
 import Liaison.Evaluator
 import Liaison.Expression
-import Text.Megaparsec
+import Text.Megaparsec hiding (optional)
 import qualified Data.Map as M
 import qualified Data.Text as T
 
--- |
+-- | Validator. Use primitives like 'consume', 'index', and 'check' as basis
+-- for building your validators. Note that 'V' is an instance of 'Functor',
+-- 'Applicative', and 'Alt' (which is like 'Control.Alternative.Alternative'
+-- but without 'Control.Alternative.empty').
 
 newtype V e a = V
   { runV :: L (Exp L) -> Either (NonEmpty (L (ValidationError e))) a
@@ -52,9 +92,6 @@ instance Applicative (V e) where
       (Right _, Left errs1) -> Left errs1
       (Right f', Right x') -> Right (f' x')
 
--- | There is no meaningful "Control.Applicative" instance for 'V', thus we
--- define 'Alt' for it instead.
-
 instance Alt (V e) where
   V x <!> V y = V $ \e ->
     case (x e, y e) of
@@ -62,34 +99,36 @@ instance Alt (V e) where
       (Left _, Right y') -> Right y'
       (Right x', _) -> Right x'
 
--- |
+-- | Run a validator on given expression.
 
 validate
-  :: V e a
-  -> L (Exp L)
+  :: V e a                      -- ^ Validator to run
+  -> L (Exp L)                  -- ^ Expression to consume
   -> Either (NonEmpty (L (ValidationError e))) a
 validate = runV
 
--- | Type synonym for weak head normal form of expression.
-
-type WExp = NExp (L (Exp L))
-
--- |
+-- | Validation errors.
 
 data ValidationError e
-  = ExpectedString WExp
-  | ExpectedInteger WExp
-  | IntegerOutOfRange String WExp
-  | ExpectedFloat WExp
-  | ExpectedNumber WExp
-  | NoKeyInSet Text WExp
-  | ExpectedSet WExp
-  | OtherValidationError e
+  = ExpectedString WExp         -- ^ Expected a string
+  | ExpectedInteger WExp        -- ^ Expected an integer
+  | IntegerOutOfRange String WExp -- ^ Number that comes from configuration
+                                -- file is too big or too small for the
+                                -- Haskell type you're trying to store it in
+  | ExpectedFloat WExp          -- ^ Expected a floating point number
+  | ExpectedNumber WExp         -- ^ Expected a number
+  | NoKeyInSet Text WExp        -- ^ Tried to access using a key which is
+                                -- not there in the set
+  | ExpectedSet WExp            -- ^ Expected a set
+  | OtherValidationError e      -- ^ User-defined validation errors
   deriving (Eq, Ord, Show, Functor)
 
--- |
+-- | This type class defines how to pretty-print user-defined validation
+-- errors.
 
 class Ord e => ShowValidationError e where
+
+  -- | Map validation error to 'Prelude.String' to show it to the user.
   showValidaitonError :: e -> String
 
 instance ShowValidationError e
