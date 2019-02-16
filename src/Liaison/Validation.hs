@@ -62,6 +62,7 @@ module Liaison.Validation
   )
 where
 
+import Data.Bifunctor
 import Data.Data (Data, dataTypeOf, dataTypeName)
 import Data.Functor.Alt
 import Data.List.NonEmpty (NonEmpty (..))
@@ -71,6 +72,7 @@ import Data.Void
 import Liaison.Evaluator
 import Liaison.Expression
 import Text.Megaparsec hiding (optional)
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Text as T
 
@@ -105,7 +107,9 @@ validate
   :: V e a                      -- ^ Validator to run
   -> L (Exp L)                  -- ^ Expression to consume
   -> Either (NonEmpty (L (ValidationError e))) a
-validate = runV
+validate v = first (NE.sortBy f) . runV v
+  where
+    f (L o0 _ _) (L o1 _ _) = o0 `compare` o1
 
 -- | Validation errors.
 
