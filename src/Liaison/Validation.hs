@@ -10,8 +10,9 @@ module Liaison.Validation
   ( -- * Types
     V
   , validate
-  , ValidationError
+  , ValidationError (..)
   , ShowValidationError (..)
+  , module Data.Functor.Alt
     -- * Primitive combinators
   , consume
   , index
@@ -25,18 +26,41 @@ module Liaison.Validation
 where
 
 import Data.Data (Data, dataTypeOf, dataTypeName)
-import Data.List.NonEmpty (NonEmpty)
+import Data.Functor.Alt
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Scientific hiding (scientific)
 import Data.Text (Text)
 import Data.Void
+import Liaison.Evaluator
 import Liaison.Expression
 import Text.Megaparsec
+import qualified Data.Map as M
+import qualified Data.Text as T
 
 -- |
 
 newtype V e a = V
-  { runV :: (L (Exp L) -> Either (NonEmpty (L (ValidationError e))) a)
+  { runV :: L (Exp L) -> Either (NonEmpty (L (ValidationError e))) a
   } deriving Functor
+
+instance Applicative (V e) where
+  pure x = V $ \_ -> Right x
+  (V f) <*> (V x) = V $ \e ->
+    case (f e, x e) of
+      (Left errs0, Left errs1) -> Left (errs0 <> errs1)
+      (Left errs0, Right _) -> Left errs0
+      (Right _, Left errs1) -> Left errs1
+      (Right f', Right x') -> Right (f' x')
+
+-- | There is no meaningful "Control.Applicative" instance for 'V', thus we
+-- define 'Alt' for it instead.
+
+instance Alt (V e) where
+  V x <!> V y = V $ \e ->
+    case (x e, y e) of
+      (Left errs0, Left errs1) -> Left (errs0 <> errs1)
+      (Left _, Right y') -> Right y'
+      (Right x', _) -> Right x'
 
 -- |
 
@@ -44,18 +68,24 @@ validate
   :: V e a
   -> L (Exp L)
   -> Either (NonEmpty (L (ValidationError e))) a
-validate = undefined
+validate = runV
+
+-- | Type synonym for weak head normal form of expression.
+
+type WExp = NExp (L (Exp L))
 
 -- |
 
 data ValidationError e
-  = ExpectedString NExp
-  | ExpectedInteger NExp
-  | IntegerOutOfRange String NExp
-  | ExpectedFloat NExp
-  | ExpectedNumber NExp
+  = ExpectedString WExp
+  | ExpectedInteger WExp
+  | IntegerOutOfRange String WExp
+  | ExpectedFloat WExp
+  | ExpectedNumber WExp
+  | NoKeyInSet Text WExp
+  | ExpectedSet WExp
   | OtherValidationError e
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Functor)
 
 -- |
 
@@ -67,34 +97,71 @@ instance ShowValidationError e
   showErrorComponent (E _ e) =
     let f expected nexp =
           "expected " ++ expected ++ ", but got " ++ nexpName nexp
-    in case  e of
+    in case e of
         ExpectedString x -> f "string" x
         ExpectedInteger x -> f "integer" x
         IntegerOutOfRange t x -> f ("integer fitting range of " ++ t) x
         ExpectedFloat x -> f "float" x
         ExpectedNumber x -> f "number" x
+        NoKeyInSet key _ ->
+          "the set does not contain key \"" ++ T.unpack key ++ "\""
+        ExpectedSet x -> f "set" x
         OtherValidationError x -> showValidaitonError x
   errorComponentLen (E len _) = len
 
 ----------------------------------------------------------------------------
 -- Primitive combinators
 
-consume :: (NExp -> Either (ValidationError Void) a) -> V e a
-consume = undefined
+-- | Consume an expression in normal form.
 
-index :: Text -> V e a -> V e a
-index = undefined
+consume
+  :: (WExp -> Either (ValidationError Void) a)
+     -- ^ Consuming function
+  -> V e a
+consume f = V $ \(L o l e) ->
+  case f (evalWhnf e) of
+    Left err -> Left ((L o l (absurd <$> err)) :| [])
+    Right x -> Right x
 
-check :: (s -> Either e a) -> V e s -> V e a
-check = undefined
+-- | Index a set by given key.
+
+index
+  :: Text                       -- ^ Key
+  -> V e a                      -- ^ How to validate corresponding value
+  -> V e a                      -- ^ Validator for a set
+index key (V f) = V $ \(L o l e) ->
+  case evalWhnf e of
+    NSet m ->
+      case M.lookup key m of
+        Nothing -> Left ((L o l (NoKeyInSet key (NSet m))) :| [])
+        Just e' -> f e'
+    nexp -> Left ((L o l (ExpectedSet nexp)) :| [])
+
+-- | Run additional checking on a value.
+
+check
+  :: (s -> Either e a)          -- ^ Checking function
+  -> V e s                      -- ^ Original validator
+  -> V e a                      -- ^ Resulting validator
+check f (V g) = V $ \(L o l e) ->
+  case g (L o l e) of
+    Left errs -> Left errs
+    Right x ->
+      case f x of
+        Left err -> Left ((L o l (OtherValidationError err)) :| [])
+        Right x' -> Right x'
 
 ----------------------------------------------------------------------------
 -- Derivative combinators
+
+-- | Expect a string.
 
 str :: V e Text
 str = consume $ \case
   NString txt -> Right txt
   nexp -> Left (ExpectedString nexp)
+
+-- | Expect a bounded integer.
 
 int :: forall e a. (Data a, Integral a, Bounded a) => V e a
 int = consume $ \case
@@ -108,6 +175,8 @@ int = consume $ \case
   where
     t = dataTypeName (dataTypeOf (undefined :: a))
 
+-- | Expect a floating point number.
+
 float :: RealFloat a => V e a
 float = consume $ \case
   NNumber x ->
@@ -115,6 +184,8 @@ float = consume $ \case
       then Left (ExpectedFloat (NNumber x))
       else Right (toRealFloat x)
   nexp -> Left (ExpectedFloat nexp)
+
+-- | Expect a number.
 
 scientific :: V e Scientific
 scientific = consume $ \case

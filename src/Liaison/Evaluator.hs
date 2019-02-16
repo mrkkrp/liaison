@@ -3,20 +3,18 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Liaison.Evaluator
-  ( eval
+  ( evalWhnf
   )
 where
 
-import Data.Functor.Identity
 import Liaison.Expression
-import qualified Data.Map as M
 
--- | Transform 'Exp' to its normal form, 'NExp'.
+-- | Evaluate 'Exp' to weak head normal form.
 
-eval
-  :: Exp I
-  -> NExp
-eval = \case
+evalWhnf
+  :: Exp f
+  -> NExp (f (Exp f))
+evalWhnf = \case
   String txt -> NString txt
   Number x -> NNumber x
-  Set m -> NSet (M.map (eval . runIdentity) m)
+  Set m -> NSet m

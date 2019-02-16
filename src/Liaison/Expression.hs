@@ -11,6 +11,7 @@
 module Liaison.Expression
   ( Exp (..)
   , mapExp
+  , eraseL
   , L (..)
   , unL
   , E (..)
@@ -37,7 +38,9 @@ data Exp f
   | Set (Map Text (f (Exp f)))  -- ^ Sets
 
 deriving instance (forall a. Eq a => Eq (f a)) => Eq (Exp f)
--- deriving instance (forall a. Ord a => Ord (f a)) => Ord (Exp f) -- XXX this is strange
+deriving instance ( (forall a. Eq a => Eq (f a))
+                  , (forall a. Ord a => Ord (f a))
+                  ) => Ord (Exp f)
 deriving instance (forall a. Show a => Show (f a)) => Show (Exp f)
 
 -- | String literals can be used to write string expressions directly if
@@ -57,6 +60,13 @@ mapExp f = \case
   String txt -> String txt
   Number x -> Number x
   Set m -> Set (M.map (fmap (mapExp f) . f) m)
+
+-- | Erase location information from AST.
+--
+-- > eraseL = mapExp (Identity . unL)
+
+eraseL :: Exp L -> Exp I
+eraseL = mapExp (Identity . unL)
 
 -- | Location information. The first 'Int' is offset, the second 'Int' is
 -- length in characters.
@@ -84,17 +94,17 @@ unE (E _ a) = a
 
 type I = Identity
 
--- | Normal form of expressions.
+-- | 'Exp' with its outer layer evaluated.
 
-data NExp
+data NExp e
   = NString Text                -- ^ Strings
   | NNumber Scientific          -- ^ Numbers
-  | NSet (Map Text NExp)        -- ^ Sets
+  | NSet (Map Text e)           -- ^ Sets
   deriving (Eq, Ord, Show)
 
 -- | Get textual description of given 'NExp'.
 
-nexpName :: NExp -> String
+nexpName :: NExp e -> String
 nexpName = \case
   NString _ -> "string"
   NNumber x ->

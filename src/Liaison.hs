@@ -1,8 +1,8 @@
 -- | TODO Overview of the package.
 
 module Liaison
-  ( liaisonViaText
-  , liaisonViaFile
+  ( liaisonViaFile
+  , liaisonViaText
   , module Liaison.Validation
   )
 where
@@ -19,6 +19,17 @@ import qualified Data.Text.IO as T
 
 -- |
 
+liaisonViaFile
+  :: (MonadIO m, ShowValidationError e)
+  => V e a
+  -> FilePath
+  -> m (Either (ParseErrorBundle Text (E (ValidationError e))) a)
+liaisonViaFile v path = do
+  input <- liftIO (T.readFile path)
+  return (liaisonViaText v path input)
+
+-- |
+
 liaisonViaText
   :: ShowValidationError e
   => V e a
@@ -32,7 +43,9 @@ liaisonViaText v path input =
     Right lexp ->
       case validate v lexp of
         Left verrs ->
-          Left $ ParseErrorBundle (mkFancyError <$> verrs) pst
+          let mkFancyError (L o l verr) =
+                FancyError o (E.singleton (ErrorCustom (E l verr)))
+          in Left $ ParseErrorBundle (mkFancyError <$> verrs) pst
         Right x -> Right x
   where
     pst = PosState
@@ -42,22 +55,3 @@ liaisonViaText v path input =
       , pstateTabWidth = defaultTabWidth
       , pstateLinePrefix = ""
       }
-
--- |
-
-liaisonViaFile
-  :: (MonadIO m, ShowValidationError e)
-  => V e a
-  -> FilePath
-  -> m (Either (ParseErrorBundle Text (E (ValidationError e))) a)
-liaisonViaFile v path = do
-  input <- liftIO (T.readFile path)
-  return (liaisonViaText v path input)
-
-----------------------------------------------------------------------------
--- Helpers
-
-mkFancyError
-  :: L (ValidationError e)
-  -> ParseError s (E (ValidationError e))
-mkFancyError (L o l verr) = FancyError o (E.singleton (ErrorCustom (E l verr)))
